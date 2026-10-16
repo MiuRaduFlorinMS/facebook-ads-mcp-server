@@ -1,0 +1,7 @@
+# Builds the Cloud Run image from Dockerfile.cloudrun.
+# Usage: gcloud builds submit --config cloudbuild.yaml --substitutions=_IMAGE=<region>-docker.pkg.dev/<project>/mcp-servers/meta-ads-mcp-bridge:latest .
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "Dockerfile.cloudrun", "-t", "${_IMAGE}", "."]
+images:
+  - "${_IMAGE}"

@@ -1,0 +1,27 @@
+# Cloud Run image: exposes the stdio MCP server over HTTP (SSE) via mcp-proxy.
+FROM python:3.11-slim
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+COPY requirements.txt ./
+COPY server.py ./
+
+# Install the server's deps into an ISOLATED venv so mcp-proxy's own mcp pin
+# cannot clobber them (and vice versa).
+RUN uv venv /app/venv
+RUN uv pip install --python /app/venv/bin/python -r requirements.txt
+
+# Install the stdio-to-HTTP bridge in the separate system environment.
+# pydantic<2.14: mcp-proxy 0.9.0 pulls mcp 1.9.x, which imports a private
+# pydantic helper (eval_type_backport) that pydantic 2.14 removed.
+RUN uv pip install --system "mcp-proxy==0.9.0" "pydantic<2.14"
+
+# Cloud Run default port
+EXPOSE 8080
+
+# mcp-proxy runs server.py FROM THE VENV as a stdio subprocess.
+# --pass-environment forwards Cloud Run env vars (FB_ACCESS_TOKEN) to the child.
+CMD ["mcp-proxy", "--pass-environment", "--transport", "sse", "--port", "8080", "--host", "0.0.0.0", "--", "/app/venv/bin/python", "/app/server.py"]

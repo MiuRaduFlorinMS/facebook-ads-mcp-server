@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Any
 import json
 import requests
 import sys
+import os
 from urllib.parse import urlsplit
 
     
@@ -29,14 +30,15 @@ FB_ACCESS_TOKEN = None
 
 def _get_fb_access_token() -> str:
     """
-    Get Facebook access token from command line arguments.
+    Get Facebook access token from command line arguments, falling back to the
+    FB_ACCESS_TOKEN environment variable (used for hosted deployments like Cloud Run).
     Caches the token in memory after first read.
 
     Returns:
         str: The Facebook access token.
 
     Raises:
-        Exception: If no token is provided in command line arguments.
+        Exception: If no token is provided via command line or environment.
     """
     global FB_ACCESS_TOKEN
     if FB_ACCESS_TOKEN is None:
@@ -45,11 +47,15 @@ def _get_fb_access_token() -> str:
             token_index = sys.argv.index("--fb-token") + 1
             if token_index < len(sys.argv):
                 FB_ACCESS_TOKEN = sys.argv[token_index]
-                print(f"Using Facebook token from command line arguments")
+                # stdout is the MCP stdio channel, so log to stderr
+                print("Using Facebook token from command line arguments", file=sys.stderr)
             else:
                 raise Exception("--fb-token argument provided but no token value followed it")
+        elif os.environ.get("FB_ACCESS_TOKEN"):
+            FB_ACCESS_TOKEN = os.environ["FB_ACCESS_TOKEN"]
+            print("Using Facebook token from FB_ACCESS_TOKEN environment variable", file=sys.stderr)
         else:
-            raise Exception("Facebook token must be provided via '--fb-token' command line argument")
+            raise Exception("Facebook token must be provided via '--fb-token' command line argument or the FB_ACCESS_TOKEN environment variable")
 
     return FB_ACCESS_TOKEN
 
